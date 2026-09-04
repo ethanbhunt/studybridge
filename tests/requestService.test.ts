@@ -4,6 +4,84 @@ import { AppError } from "../src/domain/errors.js";
 import { NOW, createTestContext } from "./fixtures.js";
 
 describe("RequestService", () => {
+  it("lets an active student create an open support request", async () => {
+    const context = createTestContext();
+
+    const result = await context.requests.createRequest({
+      actorId: "student_steve",
+      title: "  Prepare for a chemistry quiz  ",
+      description: "  I am unsure how to balance redox reactions.  ",
+      priority: "normal",
+      tags: [" Chemistry ", "Quiz prep", "chemistry", ""],
+    });
+
+    assert.equal(result.id, "request_suite_1");
+    assert.equal(result.title, "Prepare for a chemistry quiz");
+    assert.equal(result.description, "I am unsure how to balance redox reactions.");
+    assert.equal(result.requesterId, "student_steve");
+    assert.equal(result.status, "open");
+    assert.equal(result.assigneeId, undefined);
+    assert.equal(result.priority, "normal");
+    assert.deepEqual(result.tags, ["Chemistry", "Quiz prep"]);
+    assert.equal(result.createdAt, NOW);
+    assert.equal(result.updatedAt, NOW);
+    assert.deepEqual(await context.repository.getRequest(result.id), result);
+
+    const events = await context.repository.listAuditEvents();
+    assert.equal(events.length, 1);
+    assert.equal(events[0]?.action, "request.created");
+    assert.equal(events[0]?.targetId, result.id);
+    assert.deepEqual(events[0]?.details, {});
+    assert.equal(JSON.stringify(events).includes("chemistry"), false);
+  });
+
+  it("rejects support requests created by staff without changing state", async () => {
+    const context = createTestContext();
+    const before = await context.repository.listRequests();
+
+    await assertAppError(
+      () => context.requests.createRequest({
+        actorId: "mentor_morgan",
+        title: "Staff-created request",
+        description: "This should not be persisted.",
+        priority: "low",
+        tags: [],
+      }),
+      "forbidden",
+    );
+
+    assert.deepEqual(await context.repository.listRequests(), before);
+    assert.deepEqual(await context.repository.listAuditEvents(), []);
+  });
+
+  it("validates student-entered request content before persisting", async () => {
+    const context = createTestContext();
+
+    await assertAppError(
+      () => context.requests.createRequest({
+        actorId: "student_steve",
+        title: "   ",
+        description: "A real description",
+        priority: "high",
+        tags: [],
+      }),
+      "bad_request",
+    );
+    await assertAppError(
+      () => context.requests.createRequest({
+        actorId: "student_steve",
+        title: "A real title",
+        description: "A real description",
+        priority: "high",
+        tags: ["1", "2", "3", "4", "5", "6"],
+      }),
+      "bad_request",
+    );
+
+    assert.deepEqual(await context.repository.listAuditEvents(), []);
+    assert.equal((await context.repository.listRequests()).length, 5);
+  });
+
   it("lets an active mentor claim an open support request", async () => {
     const context = createTestContext();
 

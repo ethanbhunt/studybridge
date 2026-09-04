@@ -4,6 +4,7 @@ import {
   canAddNote,
   canAnonymizeAccount,
   canClaimRequest,
+  canCreateRequest,
   canResolveRequest,
   canViewNote,
   canViewRequest,
@@ -28,6 +29,9 @@ describe("authorization policies", () => {
     assert.equal(isStaff(mentor), true);
     assert.equal(isStaff(coordinator), true);
     assert.equal(canAddNote(student), false);
+    assert.equal(canCreateRequest(student), true);
+    assert.equal(canCreateRequest(mentor), false);
+    assert.equal(canCreateRequest(coordinator), false);
     assert.equal(canAddNote(mentor), true);
     assert.equal(canAnonymizeAccount(mentor), false);
     assert.equal(canAnonymizeAccount(coordinator), true);
@@ -42,6 +46,7 @@ describe("authorization policies", () => {
   it("never grants capabilities to an inactive account", () => {
     assert.equal(canViewRequest(inactiveMentor, openRequest), false);
     assert.equal(canClaimRequest(inactiveMentor, openRequest), false);
+    assert.equal(canCreateRequest({ ...student, active: false }), false);
     assert.equal(canAddNote(inactiveMentor), false);
   });
 

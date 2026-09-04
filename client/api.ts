@@ -1,6 +1,7 @@
 import type {
   AccountSummary,
   NoteVisibility,
+  Priority,
   RequestDetail,
   RequestFilters,
   RequestSummary,
@@ -56,6 +57,23 @@ export async function listRequests(
     `/api/requests?${search}`,
   );
   return response.requests;
+}
+
+export async function createRequest(input: {
+  title: string;
+  description: string;
+  priority: Priority;
+  tags: string[];
+}): Promise<string> {
+  const response = await requestJson<{ request: { id: string } }>(
+    "/api/requests",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  return response.request.id;
 }
 
 export async function getRequest(

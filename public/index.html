@@ -79,9 +79,19 @@
 
         <section class="board" aria-labelledby="board-title">
           <div class="board-heading">
-            <div>
-              <h2 id="board-title">Support requests</h2>
-              <p id="summary" aria-live="polite">Loading</p>
+            <div class="board-title-block">
+              <div>
+                <h2 id="board-title">Support requests</h2>
+                <p id="summary" aria-live="polite">Loading</p>
+              </div>
+              <button
+                id="create-request"
+                class="button button-primary"
+                type="button"
+                hidden
+              >
+                Ask for help
+              </button>
             </div>
             <div class="filters" aria-label="Request filters">
               <label>
@@ -106,6 +116,100 @@
         </section>
       </main>
     </div>
+
+    <dialog
+      id="create-request-dialog"
+      class="request-dialog"
+      aria-labelledby="create-request-title"
+    >
+      <div class="dialog-shell">
+        <button
+          id="close-create-request"
+          class="dialog-close"
+          type="button"
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <form id="create-request-form" class="create-request-form">
+          <div class="detail-heading">
+            <p class="priority-label">Student support</p>
+            <h2 id="create-request-title">Ask for help</h2>
+            <p class="form-intro">
+              Tell a mentor what you are working on and what kind of support
+              would be useful.
+            </p>
+          </div>
+
+          <label class="field-label" for="request-title">
+            What would you like help with?
+            <input
+              id="request-title"
+              name="title"
+              maxlength="120"
+              required
+            />
+          </label>
+
+          <label class="field-label" for="request-description">
+            A little more context
+            <textarea
+              id="request-description"
+              name="description"
+              rows="5"
+              maxlength="1200"
+              required
+            ></textarea>
+          </label>
+
+          <div class="form-row">
+            <label class="field-label" for="request-priority">
+              When do you need help?
+              <select id="request-priority" name="priority">
+                <option value="low">Whenever someone is available</option>
+                <option value="normal" selected>Soon</option>
+                <option value="high">Time-sensitive</option>
+              </select>
+            </label>
+
+            <label class="field-label" for="request-tags">
+              Topics (optional)
+              <input
+                id="request-tags"
+                name="tags"
+                maxlength="200"
+                placeholder="Calculus, study skills"
+              />
+              <span class="form-hint">Separate up to five topics with commas.</span>
+            </label>
+          </div>
+
+          <p
+            id="create-request-error"
+            class="login-error"
+            role="alert"
+            hidden
+          ></p>
+
+          <div class="form-actions">
+            <button
+              id="create-request-submit"
+              class="button button-primary"
+              type="submit"
+            >
+              Send request
+            </button>
+            <button
+              id="cancel-create-request"
+              class="button button-secondary"
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </dialog>
 
     <dialog id="request-dialog" class="request-dialog">
       <div class="dialog-shell">

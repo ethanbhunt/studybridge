@@ -1,7 +1,7 @@
 # StudyBridge
 
-StudyBridge is a small peer tutoring and student-support application. Students ask
-for help with a course, study planning, or campus resources; mentors claim 
+StudyBridge is a small peer tutoring and student-support application. Students create
+requests for help with a course, study planning, or campus resources; mentors claim
 requests; and coordinators can add private support notes. 
 
 ## Quick start

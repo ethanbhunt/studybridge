@@ -3,9 +3,11 @@ import type { Application } from "../application.js";
 import { AppError } from "../domain/errors.js";
 import {
   noteVisibilities,
+  priorities,
   requestStatuses,
   type AccountSummary,
   type NoteVisibility,
+  type Priority,
   type RequestFilters,
   type RequestStatus,
 } from "../domain/types.js";
@@ -71,6 +73,26 @@ export function createApiHandler(getApplication: ApplicationProvider) {
         return;
       }
 
+      if (method === "POST" && url.pathname === "/api/requests") {
+        const body = await readJson(request);
+        const priority = requireString(body.priority, "priority");
+        if (!priorities.includes(priority as Priority)) {
+          throw new AppError(
+            "bad_request",
+            "'priority' must be 'low', 'normal', or 'high'.",
+          );
+        }
+        const created = await application.requests.createRequest({
+          actorId: actor.id,
+          title: requireString(body.title, "title"),
+          description: requireString(body.description, "description"),
+          priority: priority as Priority,
+          tags: optionalStringArray(body.tags, "tags"),
+        });
+        sendJson(response, 201, { request: created });
+        return;
+      }
+
       const detailMatch = url.pathname.match(/^\/api\/requests\/([^/]+)$/);
       if (method === "GET" && detailMatch?.[1] !== undefined) {
         const requestId = decodeURIComponent(detailMatch[1]);
@@ -133,6 +155,19 @@ export function createApiHandler(getApplication: ApplicationProvider) {
       sendError(response, error);
     }
   };
+}
+
+function optionalStringArray(value: unknown, field: string): string[] {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new AppError(
+      "bad_request",
+      `'${field}' must be an array of strings.`,
+    );
+  }
+  return value as string[];
 }
 
 async function authenticatedAccount(

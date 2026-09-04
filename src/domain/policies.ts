@@ -15,6 +15,10 @@ export function canViewNote(viewer: Account, note: RequestNote): boolean {
   return viewer.active && (note.visibility === "public" || isStaff(viewer));
 }
 
+export function canCreateRequest(actor: Account): boolean {
+  return actor.active && actor.role === "student";
+}
+
 export function canClaimRequest(
   actor: Account,
   request: HelpRequest,

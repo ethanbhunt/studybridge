@@ -7,7 +7,8 @@ including the ones that are inconvenient to implement.
 
 ## Roles
 
-- A **student** can view their own requests and public notes on those requests.
+- A **student** can create requests, view their own requests, and see public
+  notes on those requests.
 - A **mentor** can view all requests, claim open requests, resolve requests
   assigned to them, and add public or staff notes.
 - A **coordinator** has mentor abilities, can resolve any active request, and
@@ -37,6 +38,11 @@ different account. A future self-service endpoint is described in work item 004.
 
 Requests move through `open -> claimed -> resolved`.
 
+- Only an active student may create a request. New requests start open and
+  unassigned, with the signed-in student as requester.
+- A title and description are required. Titles may contain at most 120
+  characters, descriptions at most 1,200 characters, and requests at most five
+  distinct tags of 30 characters each.
 - A mentor may claim an open request.
 - Claiming a request already assigned to the same mentor is a successful
   no-op. It should not create a second audit event.

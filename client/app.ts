@@ -2,6 +2,7 @@ import {
   addNote,
   ApiError,
   claimRequest,
+  createRequest,
   currentSession,
   getRequest,
   listRequests,
@@ -13,6 +14,7 @@ import { button, byId, clear, formatDate, text } from "./dom.js";
 import type {
   AccountSummary,
   NoteVisibility,
+  Priority,
   RequestDetail,
   RequestFilters,
   RequestStatus,
@@ -48,6 +50,12 @@ const tagInput = byId<HTMLInputElement>("tag-filter");
 const requestList = byId<HTMLElement>("request-list");
 const summary = byId<HTMLElement>("summary");
 const errorBanner = byId<HTMLElement>("error-banner");
+const createRequestButton = byId<HTMLButtonElement>("create-request");
+const createRequestDialog = byId<HTMLDialogElement>("create-request-dialog");
+const createRequestForm = byId<HTMLFormElement>("create-request-form");
+const createRequestSubmit = byId<HTMLButtonElement>("create-request-submit");
+const createRequestError = byId<HTMLElement>("create-request-error");
+const requestTitleInput = byId<HTMLInputElement>("request-title");
 const detailDialog = byId<HTMLDialogElement>("request-dialog");
 const detailContent = byId<HTMLElement>("dialog-content");
 
@@ -76,6 +84,26 @@ tagInput.addEventListener("change", () => {
 
 byId<HTMLButtonElement>("refresh").addEventListener("click", () => {
   void refreshRequests();
+});
+
+createRequestButton.addEventListener("click", () => {
+  createRequestForm.reset();
+  hideCreateRequestError();
+  createRequestDialog.showModal();
+  requestTitleInput.focus();
+});
+
+byId<HTMLButtonElement>("close-create-request").addEventListener("click", () => {
+  createRequestDialog.close();
+});
+
+byId<HTMLButtonElement>("cancel-create-request").addEventListener("click", () => {
+  createRequestDialog.close();
+});
+
+createRequestForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void submitRequest();
 });
 
 byId<HTMLButtonElement>("close-dialog").addEventListener("click", () => {
@@ -122,6 +150,7 @@ async function signOut(): Promise<void> {
     state.account = undefined;
     state.requests = [];
     state.selectedId = undefined;
+    createRequestDialog.close();
     detailDialog.close();
     showLogin();
   }
@@ -145,9 +174,48 @@ function showApp(account: AccountSummary): void {
     text("strong", account.displayName),
     text("span", roleLabel(account.role)),
   );
+  createRequestButton.hidden = account.role !== "student";
   loginView.hidden = true;
   appView.hidden = false;
   hideError();
+}
+
+async function submitRequest(): Promise<void> {
+  createRequestSubmit.disabled = true;
+  createRequestSubmit.textContent = "Sending…";
+  hideCreateRequestError();
+
+  const form = new FormData(createRequestForm);
+  try {
+    const requestId = await createRequest({
+      title: form.get("title")?.toString() ?? "",
+      description: form.get("description")?.toString() ?? "",
+      priority: (form.get("priority")?.toString() ?? "normal") as Priority,
+      tags: (form.get("tags")?.toString() ?? "")
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0),
+    });
+
+    state.filters = {};
+    statusSelect.value = "";
+    tagInput.value = "";
+    createRequestDialog.close();
+    createRequestForm.reset();
+    await refreshRequests();
+    await openDetail(requestId);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      createRequestDialog.close();
+      handleAppError(error);
+      return;
+    }
+    createRequestError.textContent = errorMessage(error);
+    createRequestError.hidden = false;
+  } finally {
+    createRequestSubmit.disabled = false;
+    createRequestSubmit.textContent = "Send request";
+  }
 }
 
 async function refreshRequests(): Promise<void> {
@@ -407,6 +475,11 @@ function hideError(): void {
 function hideLoginError(): void {
   loginError.hidden = true;
   loginError.textContent = "";
+}
+
+function hideCreateRequestError(): void {
+  createRequestError.hidden = true;
+  createRequestError.textContent = "";
 }
 
 function errorMessage(error: unknown): string {

@@ -2,12 +2,14 @@ import { badRequest, conflict, forbidden } from "../domain/errors.js";
 import {
   canAddNote,
   canClaimRequest,
+  canCreateRequest,
   canResolveRequest,
 } from "../domain/policies.js";
 import type {
   AuditEvent,
   HelpRequest,
   NoteVisibility,
+  Priority,
   RequestNote,
 } from "../domain/types.js";
 import type { StudyBridgeRepository } from "../repositories/interfaces.js";
@@ -21,6 +23,62 @@ export class RequestService {
     private readonly clock: Clock,
     private readonly ids: IdSource,
   ) {}
+
+  async createRequest(input: {
+    actorId: string;
+    title: string;
+    description: string;
+    priority: Priority;
+    tags: string[];
+  }): Promise<HelpRequest> {
+    const actor = await requireAccount(this.repository, input.actorId);
+    if (!canCreateRequest(actor)) {
+      throw forbidden("Only active students can create support requests.");
+    }
+
+    const title = input.title.trim();
+    const description = input.description.trim();
+    if (title.length === 0) {
+      throw badRequest("A request title cannot be empty.");
+    }
+    if (title.length > 120) {
+      throw badRequest("A request title cannot be longer than 120 characters.");
+    }
+    if (description.length === 0) {
+      throw badRequest("A request description cannot be empty.");
+    }
+    if (description.length > 1200) {
+      throw badRequest(
+        "A request description cannot be longer than 1200 characters.",
+      );
+    }
+
+    const tags = normalizedTags(input.tags);
+    const occurredAt = iso(this.clock.now());
+    const request: HelpRequest = {
+      id: this.ids.next("request"),
+      title,
+      description,
+      requesterId: actor.id,
+      status: "open",
+      priority: input.priority,
+      tags,
+      createdAt: occurredAt,
+      updatedAt: occurredAt,
+    };
+
+    await this.repository.saveRequest(request);
+    await this.repository.appendAuditEvent(
+      this.requestEvent(
+        actor.id,
+        "request.created",
+        request.id,
+        occurredAt,
+        {},
+      ),
+    );
+    return request;
+  }
 
   async claimRequest(actorId: string, requestId: string): Promise<HelpRequest> {
     const [actor, request] = await Promise.all([
@@ -164,4 +222,25 @@ export class RequestService {
       details,
     };
   }
+}
+
+function normalizedTags(values: string[]): string[] {
+  const unique = new Map<string, string>();
+  for (const value of values) {
+    const tag = value.trim();
+    if (tag.length === 0) {
+      continue;
+    }
+    if (tag.length > 30) {
+      throw badRequest("A request tag cannot be longer than 30 characters.");
+    }
+    const key = tag.toLocaleLowerCase();
+    if (!unique.has(key)) {
+      unique.set(key, tag);
+    }
+  }
+  if (unique.size > 5) {
+    throw badRequest("A request cannot have more than 5 tags.");
+  }
+  return [...unique.values()];
 }

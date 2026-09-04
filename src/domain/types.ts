@@ -47,6 +47,7 @@ export interface AuditEvent {
   id: string;
   actorId: string;
   action:
+    | "request.created"
     | "request.claimed"
     | "request.resolved"
     | "request.note_added"

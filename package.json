@@ -1,0 +1,28 @@
+{
+  "name": "studybridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small peer tutoring and student-support app.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "build:server": "tsc -p tsconfig.json",
+    "build:client": "tsc -p tsconfig.client.json",
+    "build": "npm run clean && npm run build:server && npm run build:client",
+    "dev": "npm run build:client && tsx watch src/server.ts",
+    "start": "npm run build && node dist/server.js",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "check": "npm run typecheck && npm test",
+    "reset:data": "node scripts/reset-data.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  },
+  "license": "MIT"
+}

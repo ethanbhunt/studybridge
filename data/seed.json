@@ -1,0 +1,144 @@
+{
+  "accounts": [
+    {
+      "id": "acct_steve",
+      "displayName": "Steve Student",
+      "email": "steve@example.test",
+      "role": "student",
+      "active": true,
+      "createdAt": "2025-10-20T16:00:00.000Z"
+    },
+    {
+      "id": "acct_morgan",
+      "displayName": "Morgan Mentor",
+      "email": "morgan@example.test",
+      "role": "mentor",
+      "active": true,
+      "createdAt": "2025-09-11T16:00:00.000Z"
+    },
+    {
+      "id": "acct_priya",
+      "displayName": "Priya Coordinator",
+      "email": "priya@example.test",
+      "role": "coordinator",
+      "active": true,
+      "createdAt": "2025-08-04T16:00:00.000Z"
+    },
+    {
+      "id": "acct_former",
+      "displayName": "Former member",
+      "email": "closed+acct_former@invalid.studybridge",
+      "role": "student",
+      "active": false,
+      "createdAt": "2025-08-12T16:00:00.000Z",
+      "anonymizedAt": "2025-11-03T18:00:00.000Z"
+    }
+  ],
+  "requests": [
+    {
+      "id": "req_related_rates",
+      "title": "Practice related-rates problems",
+      "description": "I understand derivatives but get stuck translating word problems into equations.",
+      "requesterId": "acct_steve",
+      "status": "open",
+      "priority": "high",
+      "tags": ["Calculus", "Tutoring"],
+      "createdAt": "2026-01-11T17:20:00.000Z",
+      "updatedAt": "2026-01-11T17:20:00.000Z"
+    },
+    {
+      "id": "req_study_plan",
+      "title": "Build a study plan for midterms",
+      "description": "I have three exams in one week and need help making a realistic plan.",
+      "requesterId": "acct_steve",
+      "assigneeId": "acct_morgan",
+      "status": "claimed",
+      "priority": "normal",
+      "tags": ["Study Skills", "Planning"],
+      "createdAt": "2026-01-08T20:10:00.000Z",
+      "updatedAt": "2026-01-10T15:00:00.000Z"
+    },
+    {
+      "id": "req_financial_aid",
+      "title": "Find the right financial-aid office",
+      "description": "I am unsure which campus office handles a change in family circumstances.",
+      "requesterId": "acct_former",
+      "status": "open",
+      "priority": "normal",
+      "tags": ["Campus Resources", "Financial Aid"],
+      "createdAt": "2025-10-29T19:30:00.000Z",
+      "updatedAt": "2025-10-29T19:30:00.000Z"
+    },
+    {
+      "id": "req_python",
+      "title": "Understand a Python loop exercise",
+      "description": "I want to understand why my loop skips the final list item, not just get the answer.",
+      "requesterId": "acct_former",
+      "assigneeId": "acct_morgan",
+      "status": "resolved",
+      "priority": "low",
+      "tags": ["Programming", "CS 101"],
+      "createdAt": "2025-10-18T14:00:00.000Z",
+      "updatedAt": "2025-10-22T17:45:00.000Z",
+      "resolvedAt": "2025-10-22T17:45:00.000Z"
+    },
+    {
+      "id": "req_degree_plan",
+      "title": "Prepare questions for degree-planning appointment",
+      "description": "Help me organize questions about prerequisites before I meet my academic advisor.",
+      "requesterId": "acct_steve",
+      "assigneeId": "acct_priya",
+      "status": "claimed",
+      "priority": "high",
+      "tags": ["Advising", "Registration"],
+      "createdAt": "2026-01-09T18:00:00.000Z",
+      "updatedAt": "2026-01-11T13:00:00.000Z"
+    }
+  ],
+  "notes": [
+    {
+      "id": "note_study_plan_public",
+      "requestId": "req_study_plan",
+      "authorId": "acct_morgan",
+      "body": "I can meet Thursday at 3 and bring a weekly-planning template.",
+      "visibility": "public",
+      "createdAt": "2026-01-10T15:00:00.000Z"
+    },
+    {
+      "id": "note_study_plan_staff",
+      "requestId": "req_study_plan",
+      "authorId": "acct_priya",
+      "body": "Morgan is covering the first meeting; check whether a second mentor is needed next week.",
+      "visibility": "staff",
+      "createdAt": "2026-01-10T15:20:00.000Z"
+    },
+    {
+      "id": "note_degree_plan_staff",
+      "requestId": "req_degree_plan",
+      "authorId": "acct_priya",
+      "body": "Keep the conversation focused on preparing questions; formal degree advice belongs with advising.",
+      "visibility": "staff",
+      "createdAt": "2026-01-11T13:00:00.000Z"
+    }
+  ],
+  "auditEvents": [
+    {
+      "id": "event_study_plan_claimed",
+      "actorId": "acct_morgan",
+      "action": "request.claimed",
+      "targetType": "request",
+      "targetId": "req_study_plan",
+      "occurredAt": "2026-01-10T15:00:00.000Z",
+      "details": { "assigneeId": "acct_morgan" }
+    },
+    {
+      "id": "event_former_anonymized",
+      "actorId": "acct_priya",
+      "action": "account.anonymized",
+      "targetType": "account",
+      "targetId": "acct_former",
+      "occurredAt": "2025-11-03T18:00:00.000Z",
+      "details": {}
+    }
+  ]
+}

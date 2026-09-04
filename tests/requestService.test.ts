@@ -1,0 +1,160 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { AppError } from "../src/domain/errors.js";
+import { NOW, createTestContext } from "./fixtures.js";
+
+describe("RequestService", () => {
+  it("lets an active mentor claim an open support request", async () => {
+    const context = createTestContext();
+
+    const result = await context.requests.claimRequest(
+      "mentor_morgan",
+      "request_calculus",
+    );
+
+    assert.equal(result.status, "claimed");
+    assert.equal(result.assigneeId, "mentor_morgan");
+    assert.equal(result.updatedAt, NOW);
+    assert.deepEqual(await context.repository.getRequest("request_calculus"), result);
+    const events = await context.repository.listAuditEvents();
+    assert.equal(events.length, 1);
+    assert.equal(events[0]?.action, "request.claimed");
+    assert.deepEqual(events[0]?.details, { assigneeId: "mentor_morgan" });
+  });
+
+  it("rejects a claim by a student without changing state", async () => {
+    const context = createTestContext();
+
+    await assertAppError(
+      () => context.requests.claimRequest("student_steve", "request_calculus"),
+      "forbidden",
+    );
+
+    assert.equal(
+      (await context.repository.getRequest("request_calculus"))?.status,
+      "open",
+    );
+    assert.deepEqual(await context.repository.listAuditEvents(), []);
+  });
+
+  it("reports a conflict when another mentor already has the request", async () => {
+    const context = createTestContext();
+
+    await assertAppError(
+      () => context.requests.claimRequest("coordinator_priya", "request_planning"),
+      "conflict",
+    );
+    assert.deepEqual(await context.repository.listAuditEvents(), []);
+  });
+
+  it("treats a repeated claim by the same mentor as a no-op", async () => {
+    const context = createTestContext();
+
+    const before = await context.repository.getRequest("request_planning");
+    const result = await context.requests.claimRequest(
+      "mentor_morgan",
+      "request_planning",
+    );
+
+    assert.deepEqual(result, before);
+    assert.deepEqual(await context.repository.listAuditEvents(), []);
+  });
+
+  it("does not allow a resolved request to be claimed", async () => {
+    const context = createTestContext();
+    await assertAppError(
+      () => context.requests.claimRequest("mentor_morgan", "request_resolved"),
+      "conflict",
+    );
+  });
+
+  it("lets a mentor resolve a request assigned to them", async () => {
+    const context = createTestContext();
+
+    const result = await context.requests.resolveRequest(
+      "mentor_morgan",
+      "request_planning",
+    );
+
+    assert.equal(result.status, "resolved");
+    assert.equal(result.resolvedAt, NOW);
+    const events = await context.repository.listAuditEvents();
+    assert.equal(events[0]?.action, "request.resolved");
+    assert.deepEqual(events[0]?.details, {});
+  });
+
+  it("rejects a mentor resolving somebody else's request", async () => {
+    const context = createTestContext();
+    await assertAppError(
+      () => context.requests.resolveRequest("mentor_morgan", "request_calculus"),
+      "forbidden",
+    );
+  });
+
+  it("lets a coordinator resolve any active request", async () => {
+    const context = createTestContext();
+    const result = await context.requests.resolveRequest(
+      "coordinator_priya",
+      "request_calculus",
+    );
+    assert.equal(result.status, "resolved");
+  });
+
+  it("trims a note and records a non-sensitive audit event", async () => {
+    const context = createTestContext();
+
+    const note = await context.requests.addNote({
+      actorId: "mentor_morgan",
+      requestId: "request_calculus",
+      body: "  Let's sketch the diagram first.  ",
+      visibility: "public",
+    });
+
+    assert.equal(note.body, "Let's sketch the diagram first.");
+    assert.equal(note.createdAt, NOW);
+    const events = await context.repository.listAuditEvents();
+    assert.equal(events[0]?.action, "request.note_added");
+    assert.deepEqual(events[0]?.details, {
+      noteId: note.id,
+      visibility: "public",
+    });
+    assert.equal(JSON.stringify(events).includes("sketch"), false);
+  });
+
+  it("rejects empty notes and student-authored notes", async () => {
+    const first = createTestContext();
+    await assertAppError(
+      () =>
+        first.requests.addNote({
+          actorId: "mentor_morgan",
+          requestId: "request_calculus",
+          body: "   ",
+          visibility: "public",
+        }),
+      "bad_request",
+    );
+
+    const second = createTestContext();
+    await assertAppError(
+      () =>
+        second.requests.addNote({
+          actorId: "student_steve",
+          requestId: "request_calculus",
+          body: "Can I write a note?",
+          visibility: "public",
+        }),
+      "forbidden",
+    );
+  });
+});
+
+async function assertAppError(
+  action: () => Promise<unknown>,
+  code: AppError["code"],
+): Promise<void> {
+  await assert.rejects(action, (error: unknown) => {
+    assert.ok(error instanceof AppError);
+    assert.equal(error.code, code);
+    return true;
+  });
+}

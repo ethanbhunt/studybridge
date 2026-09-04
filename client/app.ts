@@ -1,9 +1,12 @@
 import {
   addNote,
+  ApiError,
   claimRequest,
+  currentSession,
   getRequest,
-  listDemoAccounts,
   listRequests,
+  login,
+  logout,
   resolveRequest,
 } from "./api.js";
 import { button, byId, clear, formatDate, text } from "./dom.js";
@@ -17,23 +20,29 @@ import type {
 } from "./types.js";
 
 interface State {
-  accounts: AccountSummary[];
-  viewerId: string;
+  account: AccountSummary | undefined;
   requests: RequestSummary[];
-  selectedId?: string;
+  selectedId: string | undefined;
   filters: RequestFilters;
   loading: boolean;
 }
 
 const state: State = {
-  accounts: [],
-  viewerId: "",
+  account: undefined,
   requests: [],
+  selectedId: undefined,
   filters: {},
   loading: true,
 };
 
-const viewerSelect = byId<HTMLSelectElement>("viewer");
+const loginView = byId<HTMLElement>("login-view");
+const appView = byId<HTMLElement>("app-view");
+const loginForm = byId<HTMLFormElement>("login-form");
+const usernameInput = byId<HTMLInputElement>("username");
+const passwordInput = byId<HTMLInputElement>("password");
+const loginButton = byId<HTMLButtonElement>("login-button");
+const loginError = byId<HTMLElement>("login-error");
+const identity = byId<HTMLElement>("identity");
 const statusSelect = byId<HTMLSelectElement>("status-filter");
 const tagInput = byId<HTMLInputElement>("tag-filter");
 const requestList = byId<HTMLElement>("request-list");
@@ -42,9 +51,13 @@ const errorBanner = byId<HTMLElement>("error-banner");
 const detailDialog = byId<HTMLDialogElement>("request-dialog");
 const detailContent = byId<HTMLElement>("dialog-content");
 
-viewerSelect.addEventListener("change", () => {
-  state.viewerId = viewerSelect.value;
-  void refreshRequests();
+loginForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void signIn();
+});
+
+byId<HTMLButtonElement>("logout").addEventListener("click", () => {
+  void signOut();
 });
 
 statusSelect.addEventListener("change", () => {
@@ -73,41 +86,84 @@ void initialize();
 
 async function initialize(): Promise<void> {
   try {
-    state.accounts = await listDemoAccounts();
-    const student = state.accounts.find((account) => account.role === "student");
-    state.viewerId = student?.id ?? state.accounts[0]?.id ?? "";
-    renderViewerOptions();
+    showApp(await currentSession());
     await refreshRequests();
   } catch (error) {
-    showError(error);
+    if (error instanceof ApiError && error.status === 401) {
+      showLogin();
+      return;
+    }
+    showLogin(errorMessage(error));
   }
 }
 
+async function signIn(): Promise<void> {
+  loginButton.disabled = true;
+  loginButton.textContent = "Signing in…";
+  hideLoginError();
+  try {
+    const account = await login(usernameInput.value, passwordInput.value);
+    passwordInput.value = "";
+    showApp(account);
+    await refreshRequests();
+  } catch (error) {
+    showLogin(errorMessage(error));
+    passwordInput.select();
+  } finally {
+    loginButton.disabled = false;
+    loginButton.textContent = "Sign in";
+  }
+}
+
+async function signOut(): Promise<void> {
+  try {
+    await logout();
+  } finally {
+    state.account = undefined;
+    state.requests = [];
+    state.selectedId = undefined;
+    detailDialog.close();
+    showLogin();
+  }
+}
+
+function showLogin(message?: string): void {
+  appView.hidden = true;
+  loginView.hidden = false;
+  if (message === undefined) {
+    hideLoginError();
+  } else {
+    loginError.textContent = message;
+    loginError.hidden = false;
+  }
+  usernameInput.focus();
+}
+
+function showApp(account: AccountSummary): void {
+  state.account = account;
+  identity.replaceChildren(
+    text("strong", account.displayName),
+    text("span", roleLabel(account.role)),
+  );
+  loginView.hidden = true;
+  appView.hidden = false;
+  hideError();
+}
+
 async function refreshRequests(): Promise<void> {
-  if (state.viewerId.length === 0) {
+  if (state.account === undefined) {
     return;
   }
   state.loading = true;
   renderList();
   hideError();
   try {
-    state.requests = await listRequests(state.viewerId, state.filters);
+    state.requests = await listRequests(state.filters);
   } catch (error) {
-    showError(error);
+    handleAppError(error);
   } finally {
     state.loading = false;
     renderList();
-  }
-}
-
-function renderViewerOptions(): void {
-  clear(viewerSelect);
-  for (const account of state.accounts) {
-    const option = document.createElement("option");
-    option.value = account.id;
-    option.textContent = `${account.displayName} · ${roleLabel(account.role)}`;
-    option.selected = account.id === state.viewerId;
-    viewerSelect.append(option);
   }
 }
 
@@ -146,9 +202,11 @@ function renderCard(request: RequestSummary): HTMLElement {
     text("p", priorityLabel(request.priority), "priority-label"),
     text("h2", request.title),
   );
-  headingRow.append(titleBox, text("span", request.status, `status status-${request.status}`));
+  headingRow.append(
+    titleBox,
+    text("span", request.status, `status status-${request.status}`),
+  );
 
-  const description = text("p", request.description, "description");
   const metadata = text(
     "p",
     `Student: ${request.requester.displayName} · Mentor: ${
@@ -171,7 +229,12 @@ function renderCard(request: RequestSummary): HTMLElement {
     button("View request", "button button-secondary", () => openDetail(request.id)),
   );
 
-  card.append(headingRow, description, metadata, footer);
+  card.append(
+    headingRow,
+    text("p", request.description, "description"),
+    metadata,
+    footer,
+  );
   return card;
 }
 
@@ -184,11 +247,11 @@ async function openDetail(requestId: string): Promise<void> {
   }
 
   try {
-    const result = await getRequest(state.viewerId, requestId);
+    const result = await getRequest(requestId);
     renderDetail(result.request, result.canWriteNotes);
   } catch (error) {
     detailDialog.close();
-    showError(error);
+    handleAppError(error);
   }
 }
 
@@ -244,19 +307,17 @@ function renderDetail(request: RequestDetail, canWriteNotes: boolean): void {
 function renderActions(request: RequestDetail): HTMLElement {
   const actions = document.createElement("div");
   actions.className = "actions";
-  const viewer = currentViewer();
-  if (request.status === "open" && viewer.role !== "student") {
+  const account = currentAccount();
+  if (request.status === "open" && account.role !== "student") {
     actions.append(
       button("Claim request", "button button-primary", () =>
-        runMutation(() => claimRequest(viewer.id, request.id))),
+        runMutation(() => claimRequest(request.id))),
     );
   }
-  const canAttemptResolve =
-    request.status !== "resolved" && viewer.role !== "student";
-  if (canAttemptResolve) {
+  if (request.status !== "resolved" && account.role !== "student") {
     actions.append(
       button("Mark resolved", "button button-secondary", () =>
-        runMutation(() => resolveRequest(viewer.id, request.id))),
+        runMutation(() => resolveRequest(request.id))),
     );
   }
   return actions;
@@ -265,7 +326,6 @@ function renderActions(request: RequestDetail): HTMLElement {
 function renderNoteForm(requestId: string): HTMLElement {
   const form = document.createElement("form");
   form.className = "note-form";
-  const heading = text("h3", "Add a note");
   const label = text("label", "Note text", "field-label");
   const textarea = document.createElement("textarea");
   textarea.name = "body";
@@ -285,17 +345,15 @@ function renderNoteForm(requestId: string): HTMLElement {
   submit.type = "submit";
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const value = visibility.value as NoteVisibility;
     void runMutation(() =>
       addNote({
-        actorId: state.viewerId,
         requestId,
         body: textarea.value,
-        visibility: value,
+        visibility: visibility.value as NoteVisibility,
       }),
     );
   });
-  form.append(heading, label, visibilityLabel, submit);
+  form.append(text("h3", "Add a note"), label, visibilityLabel, submit);
   return form;
 }
 
@@ -308,16 +366,15 @@ async function runMutation(action: () => Promise<void>): Promise<void> {
       await openDetail(state.selectedId);
     }
   } catch (error) {
-    showError(error);
+    handleAppError(error);
   }
 }
 
-function currentViewer(): AccountSummary {
-  const viewer = state.accounts.find((account) => account.id === state.viewerId);
-  if (viewer === undefined) {
-    throw new Error("The selected demo account no longer exists.");
+function currentAccount(): AccountSummary {
+  if (state.account === undefined) {
+    throw new Error("Please sign in to continue.");
   }
-  return viewer;
+  return state.account;
 }
 
 function priorityLabel(priority: RequestSummary["priority"]): string {
@@ -328,12 +385,30 @@ function roleLabel(role: AccountSummary["role"]): string {
   return `${role[0]?.toUpperCase() ?? ""}${role.slice(1)}`;
 }
 
+function handleAppError(error: unknown): void {
+  if (error instanceof ApiError && error.status === 401) {
+    state.account = undefined;
+    showLogin(error.message);
+    return;
+  }
+  showError(error);
+}
+
 function showError(error: unknown): void {
-  errorBanner.textContent = error instanceof Error ? error.message : "Something went wrong.";
+  errorBanner.textContent = errorMessage(error);
   errorBanner.hidden = false;
 }
 
 function hideError(): void {
   errorBanner.hidden = true;
   errorBanner.textContent = "";
+}
+
+function hideLoginError(): void {
+  loginError.hidden = true;
+  loginError.textContent = "";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Something went wrong.";
 }

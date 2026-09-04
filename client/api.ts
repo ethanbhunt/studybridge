@@ -16,18 +16,36 @@ export class ApiError extends Error {
   }
 }
 
-export async function listDemoAccounts(): Promise<AccountSummary[]> {
-  const response = await requestJson<{ accounts: AccountSummary[] }>(
-    "/api/demo/accounts",
+export async function login(
+  username: string,
+  password: string,
+): Promise<AccountSummary> {
+  const response = await requestJson<{ account: AccountSummary }>(
+    "/api/auth/login",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    },
   );
-  return response.accounts;
+  return response.account;
+}
+
+export async function currentSession(): Promise<AccountSummary> {
+  const response = await requestJson<{ account: AccountSummary }>(
+    "/api/auth/session",
+  );
+  return response.account;
+}
+
+export async function logout(): Promise<void> {
+  await requestJson("/api/auth/logout", { method: "POST" });
 }
 
 export async function listRequests(
-  viewerId: string,
   filters: RequestFilters,
 ): Promise<RequestSummary[]> {
-  const search = new URLSearchParams({ viewerId });
+  const search = new URLSearchParams();
   if (filters.status !== undefined) {
     search.set("status", filters.status);
   }
@@ -41,41 +59,29 @@ export async function listRequests(
 }
 
 export async function getRequest(
-  viewerId: string,
   requestId: string,
 ): Promise<{ request: RequestDetail; canWriteNotes: boolean }> {
-  const search = new URLSearchParams({ viewerId });
-  return requestJson(
-    `/api/requests/${encodeURIComponent(requestId)}?${search}`,
-  );
+  return requestJson(`/api/requests/${encodeURIComponent(requestId)}`);
 }
 
 export async function claimRequest(
-  actorId: string,
   requestId: string,
 ): Promise<void> {
-  await post(`/api/requests/${encodeURIComponent(requestId)}/claim`, {
-    actorId,
-  });
+  await post(`/api/requests/${encodeURIComponent(requestId)}/claim`, {});
 }
 
 export async function resolveRequest(
-  actorId: string,
   requestId: string,
 ): Promise<void> {
-  await post(`/api/requests/${encodeURIComponent(requestId)}/resolve`, {
-    actorId,
-  });
+  await post(`/api/requests/${encodeURIComponent(requestId)}/resolve`, {});
 }
 
 export async function addNote(input: {
-  actorId: string;
   requestId: string;
   body: string;
   visibility: NoteVisibility;
 }): Promise<void> {
   await post(`/api/requests/${encodeURIComponent(input.requestId)}/notes`, {
-    actorId: input.actorId,
     body: input.body,
     visibility: input.visibility,
   });

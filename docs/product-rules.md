@@ -13,8 +13,10 @@ including the ones that are inconvenient to implement.
 - A **coordinator** has mentor abilities, can resolve any active request, and
   can anonymize an account.
 
-Role checks happen on the server. Demo users are selectable in the browser only
-to make the roles easy to explore.
+Role checks happen on the server using the authenticated session. The demo has
+one generic login per role: `student`, `mentor`, and `coordinator`, each using
+the username as its password. API requests must not choose their own actor or
+viewer ID.
 
 ## Account closure and retention
 

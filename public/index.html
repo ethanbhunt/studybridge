@@ -12,62 +12,100 @@
     <script type="module" src="/assets/app.js"></script>
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="/" aria-label="StudyBridge home">
-        <span class="brand-mark" aria-hidden="true">⌁</span>
-        <span>StudyBridge</span>
-      </a>
-      <p>Peer tutoring and student support, one request at a time.</p>
-    </header>
-
-    <main>
-      <section class="intro" aria-labelledby="page-title">
+    <main id="login-view" class="login-view" hidden>
+      <section class="login-card" aria-labelledby="login-title">
+        <a class="brand" href="/" aria-label="StudyBridge home">
+          <span class="brand-mark" aria-hidden="true">⌁</span>
+          <span>StudyBridge</span>
+        </a>
         <div>
-          <p class="kicker">Support board</p>
-          <h1 id="page-title">What can we work through together?</h1>
-          <p class="intro-copy">
-            Explore course help, study coaching, and campus-resource questions.
-            This teaching demo uses fictional data.
-          </p>
+          <h1 id="login-title">Sign in</h1>
+          <p class="login-intro">Choose a demo role to explore the support board.</p>
         </div>
 
-        <div class="viewer-panel">
-          <label for="viewer">View the demo as</label>
-          <select id="viewer" aria-describedby="viewer-hint"></select>
-          <p id="viewer-hint">Changing roles changes which requests and notes are visible.</p>
-        </div>
-      </section>
+        <form id="login-form" class="login-form">
+          <label class="field-label" for="username">
+            Username
+            <input id="username" name="username" autocomplete="username" required />
+          </label>
+          <label class="field-label" for="password">
+            Password
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+          <p id="login-error" class="login-error" role="alert" hidden></p>
+          <button id="login-button" class="button button-primary" type="submit">
+            Sign in
+          </button>
+        </form>
 
-      <aside id="error-banner" class="error-banner" role="alert" hidden></aside>
-
-      <section class="board" aria-labelledby="board-title">
-        <div class="board-heading">
-          <div>
-            <h2 id="board-title">Support requests</h2>
-            <p id="summary" aria-live="polite">Loading</p>
-          </div>
-          <div class="filters" aria-label="Request filters">
-            <label>
-              Status
-              <select id="status-filter">
-                <option value="">All statuses</option>
-                <option value="open">Open</option>
-                <option value="claimed">Claimed</option>
-                <option value="resolved">Resolved</option>
-              </select>
-            </label>
-            <label>
-              Tag
-              <input id="tag-filter" type="search" placeholder="e.g. calculus" />
-            </label>
-            <button id="refresh" class="button button-secondary" type="button">
-              Refresh
-            </button>
-          </div>
-        </div>
-        <div id="request-list" class="request-list"></div>
+        <aside class="demo-credentials" aria-labelledby="credentials-title">
+          <h2 id="credentials-title">Demo logins</h2>
+          <p>The password is the same as the username.</p>
+          <dl>
+            <div><dt>Student</dt><dd><code>student</code></dd></div>
+            <div><dt>Mentor</dt><dd><code>mentor</code></dd></div>
+            <div><dt>Coordinator</dt><dd><code>coordinator</code></dd></div>
+          </dl>
+        </aside>
       </section>
     </main>
+
+    <div id="app-view" hidden>
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="StudyBridge home">
+          <span class="brand-mark" aria-hidden="true">⌁</span>
+          <span>StudyBridge</span>
+        </a>
+        <div class="session-controls">
+          <div id="identity" class="identity"></div>
+          <button id="logout" class="button button-secondary" type="button">
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <h1 id="page-title">What do you need help with today?</h1>
+        </section>
+
+        <aside id="error-banner" class="error-banner" role="alert" hidden></aside>
+
+        <section class="board" aria-labelledby="board-title">
+          <div class="board-heading">
+            <div>
+              <h2 id="board-title">Support requests</h2>
+              <p id="summary" aria-live="polite">Loading</p>
+            </div>
+            <div class="filters" aria-label="Request filters">
+              <label>
+                Status
+                <select id="status-filter">
+                  <option value="">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="claimed">Claimed</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </label>
+              <label>
+                Tag
+                <input id="tag-filter" type="search" placeholder="e.g. calculus" />
+              </label>
+              <button id="refresh" class="button button-secondary" type="button">
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div id="request-list" class="request-list"></div>
+        </section>
+      </main>
+    </div>
 
     <dialog id="request-dialog" class="request-dialog">
       <div class="dialog-shell">
@@ -77,9 +115,5 @@
         <div id="dialog-content"></div>
       </div>
     </dialog>
-
-    <footer>
-      <p>StudyBridge is an open-source-style classroom project. All people and requests are fictional.</p>
-    </footer>
   </body>
 </html>

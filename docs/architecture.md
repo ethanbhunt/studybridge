@@ -5,25 +5,28 @@ important than the number of folders: each one owns a different kind of
 decision.
 
 ```text
-browser -> HTTP route -> service -> repository -> JSON file
-                        |       |
-                        |       -> audit event
-                        -> policy functions
+browser -> session cookie -> HTTP route -> service -> repository -> JSON file
+                                      |       |
+                                      |       -> audit event
+                                      -> policy functions
 ```
 
 ## Browser client
 
-`client/app.ts` renders server data and sends user actions over HTTP. The client
-is not a security boundary. Hiding a button can improve usability, but the
-service must still authorize every operation. Browser code must not invent
-product rules that disagree with the server.
+`client/app.ts` renders server data and sends user actions over HTTP. Login sets
+an HTTP-only session cookie, so client code never reads or stores the session
+token. The client is not a security boundary. Hiding a button can improve
+usability, but the service must still authorize every operation. Browser code
+must not invent product rules that disagree with the server.
 
 ## HTTP layer
 
 Files in `src/api/` translate HTTP details into ordinary TypeScript values. A
 route may parse a path, query string, or JSON body; reject malformed transport
 input; call one service method; and map a known application error to an HTTP
-response.
+response. Except for login, logout, health, and session lookup, API routes first
+resolve the acting account from the session cookie. They never accept an actor
+or viewer ID from the browser.
 
 Routes do not mutate repositories. A route-level shortcut can appear harmless,
 especially for a one-field update, but it bypasses authorization, audit events,
@@ -72,6 +75,7 @@ Dependencies point inward:
 
 - domain imports nothing from the other application layers;
 - repositories may import domain types;
+- authentication may import domain types and repository interfaces;
 - services may import domain and repository interfaces;
 - API code may import services and domain errors;
 - `src/server.ts` is the composition root and may import every layer.

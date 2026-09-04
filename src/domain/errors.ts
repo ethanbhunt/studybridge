@@ -1,5 +1,6 @@
 export type ErrorCode =
   | "bad_request"
+  | "unauthorized"
   | "forbidden"
   | "not_found"
   | "conflict";
@@ -17,6 +18,10 @@ export class AppError extends Error {
 
 export function badRequest(message: string): AppError {
   return new AppError("bad_request", message);
+}
+
+export function unauthorized(message = "Please sign in to continue."): AppError {
+  return new AppError("unauthorized", message);
 }
 
 export function forbidden(message = "You are not allowed to do that."): AppError {

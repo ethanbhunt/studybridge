@@ -1,13 +1,19 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { Application } from "../application.js";
 import { AppError } from "../domain/errors.js";
 import {
   noteVisibilities,
   requestStatuses,
+  type AccountSummary,
   type NoteVisibility,
   type RequestFilters,
   type RequestStatus,
 } from "../domain/types.js";
-import type { Application } from "../application.js";
+import {
+  clearSessionCookie,
+  readSessionToken,
+  setSessionCookie,
+} from "./authCookie.js";
 import { readJson, requireString, sendError, sendJson } from "./http.js";
 
 export type ApplicationProvider = () => Promise<Application>;
@@ -28,29 +34,49 @@ export function createApiHandler(getApplication: ApplicationProvider) {
 
       const application = await getApplication();
 
-      if (method === "GET" && url.pathname === "/api/demo/accounts") {
+      if (method === "POST" && url.pathname === "/api/auth/login") {
+        const body = await readJson(request);
+        const result = await application.auth.login(
+          requireString(body.username, "username"),
+          requireString(body.password, "password"),
+        );
+        setSessionCookie(response, result.token);
+        sendJson(response, 200, { account: result.account });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/auth/logout") {
+        application.auth.logout(readSessionToken(request));
+        clearSessionCookie(response);
+        sendJson(response, 200, { status: "signed_out" });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/auth/session") {
         sendJson(response, 200, {
-          accounts: await application.queries.listDemoAccounts(),
+          account: await authenticatedAccount(request, application),
         });
         return;
       }
 
+      const actor = await authenticatedAccount(request, application);
+
       if (method === "GET" && url.pathname === "/api/requests") {
-        const viewerId = requiredQuery(url, "viewerId");
-        const filters = parseFilters(url);
         sendJson(response, 200, {
-          requests: await application.queries.listRequests(viewerId, filters),
+          requests: await application.queries.listRequests(
+            actor.id,
+            parseFilters(url),
+          ),
         });
         return;
       }
 
       const detailMatch = url.pathname.match(/^\/api\/requests\/([^/]+)$/);
       if (method === "GET" && detailMatch?.[1] !== undefined) {
-        const viewerId = requiredQuery(url, "viewerId");
         const requestId = decodeURIComponent(detailMatch[1]);
         sendJson(response, 200, {
-          request: await application.queries.getRequest(viewerId, requestId),
-          canWriteNotes: await application.queries.canViewerWriteNotes(viewerId),
+          request: await application.queries.getRequest(actor.id, requestId),
+          canWriteNotes: await application.queries.canViewerWriteNotes(actor.id),
         });
         return;
       }
@@ -60,11 +86,9 @@ export function createApiHandler(getApplication: ApplicationProvider) {
       );
       if (method === "POST" && actionMatch?.[1] !== undefined) {
         const requestId = decodeURIComponent(actionMatch[1]);
-        const body = await readJson(request);
-        const actorId = requireString(body.actorId, "actorId");
         const updated = actionMatch[2] === "claim"
-          ? await application.requests.claimRequest(actorId, requestId)
-          : await application.requests.resolveRequest(actorId, requestId);
+          ? await application.requests.claimRequest(actor.id, requestId)
+          : await application.requests.resolveRequest(actor.id, requestId);
         sendJson(response, 200, { request: updated });
         return;
       }
@@ -80,7 +104,7 @@ export function createApiHandler(getApplication: ApplicationProvider) {
           );
         }
         const note = await application.requests.addNote({
-          actorId: requireString(body.actorId, "actorId"),
+          actorId: actor.id,
           requestId: decodeURIComponent(noteMatch[1]),
           body: requireString(body.body, "body"),
           visibility: visibility as NoteVisibility,
@@ -93,9 +117,8 @@ export function createApiHandler(getApplication: ApplicationProvider) {
         /^\/api\/accounts\/([^/]+)\/anonymize$/,
       );
       if (method === "POST" && anonymizeMatch?.[1] !== undefined) {
-        const body = await readJson(request);
         const account = await application.accounts.anonymizeAccount(
-          requireString(body.actorId, "actorId"),
+          actor.id,
           decodeURIComponent(anonymizeMatch[1]),
         );
         sendJson(response, 200, { account });
@@ -112,12 +135,11 @@ export function createApiHandler(getApplication: ApplicationProvider) {
   };
 }
 
-function requiredQuery(url: URL, name: string): string {
-  const value = url.searchParams.get(name);
-  if (value === null || value.length === 0) {
-    throw new AppError("bad_request", `Query parameter '${name}' is required.`);
-  }
-  return value;
+async function authenticatedAccount(
+  request: IncomingMessage,
+  application: Application,
+): Promise<AccountSummary> {
+  return application.auth.accountForToken(readSessionToken(request));
 }
 
 function parseFilters(url: URL): RequestFilters {

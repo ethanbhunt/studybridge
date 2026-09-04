@@ -15,11 +15,6 @@ import { requireAccount, requireRequest } from "./helpers.js";
 export class QueryService {
   constructor(private readonly repository: StudyBridgeRepository) {}
 
-  async listDemoAccounts(): Promise<AccountSummary[]> {
-    const accounts = await this.repository.listAccounts();
-    return accounts.filter((account) => account.active).map(accountSummary);
-  }
-
   async listRequests(
     viewerId: string,
     filters: RequestFilters = {},

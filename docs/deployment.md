@@ -18,6 +18,8 @@ Consequences:
   answer `GET /api/health` without touching the data file.
 - The current platform sends `SIGTERM` and allows ten seconds to stop accepting
   connections. Keep the shutdown handler in `src/server.ts`.
+- Demo sessions are stored in memory and expire after eight hours. Restarting
+  the process signs everyone out; that is acceptable for the teaching app.
 
 This is a compatibility contract for the course environment. A future move to a
 managed database is reasonable, but it is not part of a maintenance work item.
